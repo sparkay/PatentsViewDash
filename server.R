@@ -1,7 +1,6 @@
 # Patent Density Explorer server script
 
 ### Put setup code here -runs only once
-library(plotly)
 
 classes_to_groups <- read.delim("data/patent class groups.txt", sep="\t", stringsAsFactors = F)
 USPTOclasses <- read.delim("data/primary_classes_index2.txt", sep="\t", stringsAsFactors = F)
@@ -31,10 +30,17 @@ server <- shinyServer(function(input, output) {
     patsperyear(mainclasscode())
   })
   
-  #generate background density plot
-  output$patdensity <- renderPlot({
+  #generate background density and count plots
+  bkgrd_plots <- reactive({
     plot_patbkgrd(patdata_bkgrd())
   })
+  output$patdensity <- renderPlot({
+    bkgrd_plots()$plt_density
+  })
+  output$patcount <- renderPlot({
+    bkgrd_plots()$plt_hist
+  })
+  
   
   #pull assignees for classcode
   #may want to make the numorgs parameter user-controlled
@@ -43,8 +49,8 @@ server <- shinyServer(function(input, output) {
   })
   
   #display statistics on assignee patent counts
-  output$assigneehist <- renderPlot({
-    plot_assigneescatter(class_assignees())
+  output$assigneehist <- renderPlotly({
+    ggplotly(plot_assigneescatter(class_assignees()), tooltip=c("text"))
   })
   output$assigneetype <- renderPlot({
     plot_assigneetype(class_assignees())

@@ -1,7 +1,7 @@
 #plotting patent data
 
 library(ggplot2)
-library(cowplot)
+library(cowplot) #something in ploytly seems to be fighting with cowplot - my cowplots are disapearing if I refresh the dashboard, although they show fine on the first load
 library(stringr)
 
 #modified to generate both the total count histograph and the frequency "density" plot sidebyside
@@ -17,11 +17,17 @@ plot_patbkgrd <- function(plotdf){
   plt_hist <- ggplot(plotdf) + geom_bar(aes(x=year, y=count), stat="identity", color="gray", alpha=0.2) +ggtitle("Count") + theme_bw() + ylab("")
   
   #output combined plot
-  plot_grid(plt_hist, plt_density, align='h')
+  #plot_grid(plt_hist, plt_density, align='h')
   
   #add title
   #title <- ggdraw() + draw_label(sprintf("Total Patents %d", sum(plotdf$count, na.rm=T)), fontface='bold')
   #plot_grid(title, tmp_p, ncol=1, rel_heights=c(0.1, 1))
+  
+  ######
+  #changed to output list of ggplot objects
+  #layout will be handled by shiny
+  list(plt_density=plt_density, plt_hist=plt_hist)
+  
 }
 
 #function to generate prettier breaks for log scale plots
@@ -43,12 +49,12 @@ plot_assigneehist <- function(assigneedf) {
 
 #assignee count by type
 plot_assigneetype <- function(assigneedf) {
-  ggplot(assigneedf) + geom_bar(aes(x=assignee_desc), stat="count") + theme_bw() + scale_x_discrete(labels=str_wrap(as.character(levels(assigneedf$assignee_desc)), width=10), name="") +  ylab("number of assignees")
+  ggplot(assigneedf) + geom_bar(aes(x=assignee_desc, fill=assignee_desc), stat="count") + theme_bw() + scale_x_discrete(labels=str_wrap(as.character(levels(assigneedf$assignee_desc)), width=10), name="") +  ylab("number of assignees") + scale_fill_brewer(name="Assignee Type", palette="Set1", guide=F) 
 }
 
 #assignee scatter plot
 plot_assigneescatter <- function(assigneedf){
-  ggplot(assigneedf) + geom_point(aes(x=totalpats, y=patsinclass, color=assignee_desc)) +
+  ggplot(assigneedf) + geom_point(aes(x=totalpats, y=patsinclass, color=assignee_desc, text=assignee_organization)) +
     scale_color_brewer(name="Assignee Type", palette="Set1") + theme_bw() +
     scale_x_continuous(trans="log10", name="Total Patents", labels = scales::comma) +
     scale_y_continuous(trans="log10", name="Patents Received in this Class", breaks=logbreaks(max(assigneedf$patsinclass, na.rm=T))) +

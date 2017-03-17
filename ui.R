@@ -1,4 +1,5 @@
 # Patent Density Explorer user interface file
+library(plotly)
 
 
 Kgroups <- read.delim("data/Kgroup colors.txt", sep="\t", stringsAsFactors = F)
@@ -31,11 +32,14 @@ ui <- shinyUI(fluidPage(
   ),
   
   fluidRow(
-    plotOutput("patdensity")
+    splitLayout(
+      plotOutput("patcount"),
+      plotOutput("patdensity")
+    )
   ),
   
   splitLayout(
-    plotOutput("assigneehist"),
+    plotlyOutput("assigneehist"),
     plotOutput("assigneetype")
   ),
   
