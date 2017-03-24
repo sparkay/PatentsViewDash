@@ -34,9 +34,9 @@ plot_patbkgrd <- function(plotdf){
 #currently running on grants since that's what I get from the year_id ct in the API - will eventually fix by using my manual roll up for the All call
 #returns two plots - density and histogram
 plot_orgpats <- function(lst_pltbkg, patdf){
-  tmpdens <- lst_pltbkg$plt_density + geom_area(data=patdf, aes(x=year_id, y=grant_freq, fill=assignee_organization), position="identity", alpha=0.5) + scale_fill_brewer(palette="Set1") + theme(legend.position="top")
+  tmpdens <- lst_pltbkg$plt_density + geom_area(data=patdf, aes(x=year_id, y=grant_freq, fill=assignee_organization), position="identity", alpha=0.5) + scale_fill_brewer(palette="Set1") + theme(legend.position="top", legend.title=element_blank())
   
-  tmphist <- lst_pltbkg$plt_hist + geom_bar(data=patdf, aes(x=year_id, y=grants, fill=assignee_organization), stat="identity", alpha=0.5) + scale_fill_brewer(palette="Set1") + theme(legend.position="top")
+  tmphist <- lst_pltbkg$plt_hist + geom_bar(data=patdf, aes(x=year_id, y=grants, fill=assignee_organization), stat="identity", alpha=0.5) + scale_fill_brewer(palette="Set1") + theme(legend.position="top", legend.title=element_blank())
   
   return(list(plt_density=tmpdens, plt_hist=tmphist))
 }
