@@ -30,9 +30,21 @@ server <- shinyServer(function(input, output) {
     patsperyear(mainclasscode())
   })
   
+  #pull count of patents per year for classcode and orgs
+  orgpatdata <- reactive({
+    patsperyear_byorg(mainclasscode(), selectedorgs())
+  })
+  
   #generate background density and count plots
   bkgrd_plots <- reactive({
-    plot_patbkgrd(patdata_bkgrd())
+    
+    if(!is.na(selectedorgs())){ #if orgs are selected in table
+      plot_orgpats(plot_patbkgrd(patdata_bkgrd()), orgpatdata())
+    } else {
+      #no orgs - just return background plot
+      plot_patbkgrd(patdata_bkgrd())
+    }
+
   })
   output$patdensity <- renderPlot({
     bkgrd_plots()$plt_density
@@ -62,7 +74,26 @@ server <- shinyServer(function(input, output) {
   )
     
   #display assignee table
-  output$assignees <- renderDataTable(class_assignees())
+  output$assignees <- DT::renderDataTable(subset(class_assignees(), select=c("assignee_organization","patsinclass", "totalpats", "assignee_desc")), rownames=F)
+  
+  selectedorgs <- reactive({
+    tblsel <- input$assignees_rows_selected
+    if(length(tblsel)){
+      class_assignees()[tblsel,"assignee_id"]
+    }
+    else c(NA)
+  })
+  
+  output$testtxt <- renderText(
+    if(!is.na(selectedorgs())){ #if orgs are selected in table
+      sprintf("%s/n%s",
+              paste(selectedorgs(),sep=", ", collapse=", "),
+              typeof(selectedorgs()))
+    } else {
+      #no orgs - just return background plot
+      c("boo!")
+    }
+  )
   
 })
 

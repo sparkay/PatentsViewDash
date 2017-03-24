@@ -3,10 +3,11 @@
 library(httr)
 library(jsonlite)
 library(dplyr)
+library(tidyr)
 
 #function for getting number of papents in a USPTOclass per year
-
-patsperyear <- function(mainclass, org="All"){
+#this one just does overall count per class
+patsperyear <- function(mainclass){
     outvars <- c("uspc_mainclass_id","uspc_mainclass_title", "year_id","year_num_patents_for_uspc_mainclass")
     
     #call we are trying to emulate: http://www.patentsview.org/api/uspc_mainclasses/query?q={"uspc_mainclass_id":"292"}&f=["uspc_mainclass_id","uspc_mainclass_title","uspc_total_num_patents"] 
@@ -45,7 +46,7 @@ patsperyear <- function(mainclass, org="All"){
 assignees <- function(mainclass){
   
   #using the same past-by-hand approach as patsperyear
-  outvars <- c("assignee_organization", "assignee_type", "assignee_total_num_patents", "assignee_num_patents_for_uspc_mainclass")
+  outvars <- c("assignee_id", "assignee_organization", "assignee_type", "assignee_total_num_patents", "assignee_num_patents_for_uspc_mainclass")
   baseurl <- "http://www.patentsview.org/api/uspc_mainclasses/"
   querystr <- sprintf("q={\"_and\":[{\"uspc_mainclass_id\":\"%s\"},{\"patent_type\":\"utility\"}]}",as.character(mainclass))
   bodystr <- sprintf("f=[\"%s\"]", paste(outvars, collapse='\",\"'))
@@ -70,4 +71,63 @@ assignees <- function(mainclass){
   assigneedf <- left_join(assigneedf, assignee_type_tbl, by="assignee_type")
   
   return(assigneedf) #return all
+}
+
+#function to get patents in a USPTOclass  per assignee per year
+#need to use the assignee endpoint for this one
+#can't seem to get api to filter on both assignee and uspc_mainclass
+#looks like I need to just get all patents and then roll up by hand
+#that was actually pretty fast
+patsperyear_byorg <- function(mainclass, orgid){
+  outvars <- c("assignee_id", "assignee_organization","uspc_mainclass_id","uspc_mainclass_title", "patent_date", "patent_number", "app_date")
+  baseurl <- "http://www.patentsview.org/api/assignees/"
+  
+  ### THIS PART IS DIFFERENT FROM ALL ORG VRS OF PATSPERYEAR ###
+  orgstr <- paste(orgid, collapse="\",\"")
+  querystr <- sprintf("q={\"_and\":[{\"uspc_mainclass_id\":\"%s\"},{\"assignee_id\":[\"%s\"]}]}",as.character(mainclass), orgstr)
+  ##############################################################
+  
+  bodystr <- sprintf("f=[\"%s\"]", paste(outvars, collapse='\",\"'))
+  optstr <- "o={\"matched_subentities_only\":\"true\"}"
+  callstr <- sprintf("%squery?%s&%s&%s", baseurl, querystr, bodystr, optstr)
+  
+  #API call
+  callresults <- GET(callstr)
+  
+  #should probably add some error checking
+  
+  #each assignee has its own list within the patent and applications sublists
+  #returndf should be one row from the assignee dataframe returned form the fromJSON call
+  count_patsperyear_byorg <- function(returndf) {
+    #extract and calculate grants and apps per year for this org
+    patlst <- cbind(returndf$patents[[1]], 
+                    returndf$applications[[1]]) %>%
+              separate(patent_date, c("year_id", "grant_mo", "grant_day")) %>%
+              separate(app_date, c("app_year", "app_mo", "app_day"))
+    patsper_grantyr <- group_by(patlst, year_id) %>% summarise(grants=n())
+    patsper_appyr <- group_by(patlst, app_year) %>% summarise(apps = n()) %>% rename(year_id = app_year)
+    patsperyear <- full_join(patsper_grantyr, patsper_appyr, by="year_id")
+    patsperyear$year_id <- as.numeric(patsperyear$year_id)
+    patsperyear <- patsperyear[order(patsperyear$year_id),]
+    
+    #add freq for later density plotting
+    patsperyear <- mutate(patsperyear, grant_freq = grants/sum(grants, na.rm=T), app_freq = apps/sum(apps, na.rm=T))
+    
+    #get org and class info
+    ids <- data.frame(assignee_id=as.character(returndf$assignee_id), assignee_organization=as.character(returndf$assignee_organization),returndf$uspcs[[1]], stringsAsFactors = F)
+    
+    #output grants and apps per year for this org
+    #this is a messy way to do it
+    data.frame(ids, patsperyear)
+  }
+  
+  #json processing of content - return df
+  tmp <- fromJSON(content(callresults, as="text"))$assignees
+  #there is probably a better way to do this
+  patct <- data.frame()
+  for(id in tmp$assignee_id){
+    patct <- rbind(patct, count_patsperyear_byorg(subset(tmp, assignee_id == id)))
+  }
+  
+  return(patct)
 }

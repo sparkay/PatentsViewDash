@@ -40,11 +40,12 @@ ui <- shinyUI(fluidPage(
   
   splitLayout(
     plotlyOutput("assigneehist"),
-    plotOutput("assigneetype")
+    DT::dataTableOutput('assignees')
+    #plotOutput("assigneetype")
   ),
   
   fluidRow(
-    dataTableOutput('assignees')
+    textOutput("testtxt")
   )
   
 ))
